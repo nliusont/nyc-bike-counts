@@ -7,6 +7,7 @@ import numpy as np
 import pickle
 
 st.set_page_config(page_title="NYC Biking Data", layout="wide")
+st.title("Bike ridership in NYC")
 
 ### filter dfs func
 def filter_df(df, counter_selection):
@@ -108,5 +109,8 @@ folium.TileLayer('cartodbdark_matter').add_to(m)
 # render
 col1, col2= st.columns(2)
 with col1:
+    st.markdown("<h4 style='text-align: center;'>this is a map</h4>", unsafe_allow_html=True)
     st_data = st_folium(m, use_container_width=True)
-col2.altair_chart(chart, use_container_width=True,)
+with col2:
+    st.markdown("<h4 style='text-align: center;'>this is a chart</h4>", unsafe_allow_html=True)
+    st.altair_chart(chart, use_container_width=True,)
