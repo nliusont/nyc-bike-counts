@@ -11,65 +11,39 @@ st.title("Bike ridership in NYC")
 
 ### filter dfs func
 def filter_df(df, counter_selection):
-    new_df = df[df['name'].isin(counter_selection)]
+    new_df = df[df.index.get_level_values('id').isin(counter_selection)].copy()
     return new_df
-
-# colors
-cat_20 = ['#1f77b4',
-    '#aec7e8',
-    '#ff7f0e',
-    '#ffbb78',
-    '#2ca02c',
-    '#98df8a',
-    '#d62728',
-    '#ff9896',
-    '#9467bd',
-    '#c5b0d5',
-    '#8c564b',
-    '#c49c94',
-    '#e377c2',
-    '#f7b6d2',
-    '#7f7f7f',
-    '#c7c7c7',
-    '#bcbd22',
-    '#dbdb8d',
-    '#17becf',
-    '#9edae5'
-    ]
 
 # read files
 with open('data/retrieval_date.pkl', 'rb') as f:
     retrieval_date = pickle.load(f)
-hr = pd.read_pickle('data/by_hour.pkl')
-geo = pd.read_pickle('data/counters.pkl')
-count_per_day = hr[['name', 'counts']].groupby('name').sum()
 
-counters = np.sort(list(geo['name'].unique()))
+hr = pd.read_pickle('data/streamlit_by_hr.pkl')
+wk = pd.read_pickle('data/streamlit_by_wk.pkl')
+counters = pd.read_pickle('data/streamlit_counters.pkl')
+count_per_wk = hr.reset_index()[['id', 'counts']].groupby('id').sum()
+
+all_counters = np.sort(list(counters['name'].unique()))
 
 ### SIDEBAR
 with st.sidebar:
     selected_counters = st.multiselect("select counters:", 
-                                options=counters
+                                options=all_counters
                                 )
     if len(selected_counters)==0:
-        selected_counters = counters
+        selected_counter_ids = counters.index.to_list()
+        selected_counters = all_counters
+    else:
+        selected_counter_ids = counters.loc[counters['name'].isin(selected_counters), :].index
 
     ## sidebar legend
-    # map all counters to colors
     num_selected_counters = len(selected_counters)
-    color_indices = np.linspace(0, len(cat_20)-1, num_selected_counters, dtype=int)
-    colors = [cat_20[x] for x in color_indices]
-    color_dict = dict(zip(selected_counters, colors))
-
-    selected_counter_mapping = pd.DataFrame({
-        'name': selected_counters,
-        'count': [1 for x in selected_counters],
-        'color': colors
-    })
+    selected_counter_mapping = counters.loc[selected_counter_ids]
+    selected_counter_mapping['count'] = 1
 
     # Create an Altair chart using the color encoding
     legend_chart = alt.Chart(selected_counter_mapping).mark_bar().encode(
-        y=alt.Y('name:O', axis=alt.Axis(title=None)),
+        y=alt.Y('name:O', axis=alt.Axis(title=None), ),
         x=alt.X('count:Q', axis=alt.Axis(title=None, labels=False)), 
         color=alt.Color('color:N', scale=None)
     )
@@ -77,32 +51,50 @@ with st.sidebar:
     legend_chart = legend_chart.configure_axis(labelLimit=350)
     st.write('')
     st.altair_chart(legend_chart, use_container_width=False)
-    
+
 ### filter dfs
-select_geo = filter_df(geo, selected_counters)
-select_hr = filter_df(hr, selected_counters)
+select_counters = filter_df(counters, selected_counter_ids)
+select_hr = filter_df(hr, selected_counter_ids)
+select_wk = filter_df(wk, selected_counter_ids)
 
-#create color column
-select_geo['color'] = select_geo['name'].map(color_dict)
-select_hr['color'] = select_hr['name'].map(color_dict)
+st.write(select_hr)
 
-### line chart
-hr_chart = alt.Chart(select_hr).mark_line().encode(
-    x='hr:O',
+### HOURLY line chart ####WHY WON"T THIS SHOW RIGHT
+hr_chart = alt.Chart(select_hr.reset_index()).mark_line().encode(
+    x=alt.X('display_time:T', timeUnit='hours'),
     y=alt.Y('counts:Q', title='counts'),
-    color=alt.Color('color:N', scale=None) # Color by series_name
+    color=alt.Color('color:N', scale=None),
+    tooltip='name'
+)
+
+hr_chart = hr_chart.configure_axis(
+    labelAngle=-45
+)
+
+### WEEKLY line chart
+wk_chart = alt.Chart(select_wk.reset_index()).mark_line().encode(
+    x=alt.X('display_date:T', axis=alt.Axis(tickCount={"interval": "month", "step": 1}, tickExtra=True, grid=True), title=None),
+    y=alt.Y('counts:Q', title='counts'),
+    color=alt.Color('color:N', scale=None),
+    tooltip='name'
+)
+
+wk_chart = wk_chart.configure_axis(
+    labelAngle=-45
 )
 
 ### map
 m = folium.Map(location=[40.720, -74.0060], zoom_start=12)
+folium.TileLayer('cartodbdark_matter').add_to(m)
 
-for i, c in select_geo.iterrows():
+for i, c in select_counters.iterrows():
     # establish params
     lat = c['latitude']
     long = c['longitude']
     name = c['name']
-    count = count_per_day.loc[name]
-    color = color_dict[name]
+    id = i
+    count = count_per_wk.loc[id]
+    color = c['color']
 
     # create tooltip
     tooltip_content = f"""
@@ -110,25 +102,26 @@ for i, c in select_geo.iterrows():
      {int(np.round(count[0],0))}</strong> daily riders</p>
 """
     # create markers
-    folium.CircleMarker(
+    circle = folium.CircleMarker(
         location=(lat,long),
         tooltip=folium.Tooltip(tooltip_content),
         radius=count[0] * 0.025,
         color=color,
         fill=True,
-        fill_color=color
+        fill_color=color,
+        highlight=True
     ).add_to(m)
 
-# Add a customized TileLayer to the map
-folium.TileLayer('cartodbdark_matter').add_to(m)
-    
 
 # render
 col1, col2= st.columns(2)
 
 with col1:
-    st.markdown("<h4 style='text-align: center;'>this is a chart</h4>", unsafe_allow_html=True)
+    st.markdown("<h4 style='text-align: center;'>this is an hourly chart</h4>", unsafe_allow_html=True)
     st.altair_chart(hr_chart, use_container_width=True)
+with col1:
+    st.markdown("<h4 style='text-align: center;'>this is a weekly chart</h4>", unsafe_allow_html=True)
+    st.altair_chart(wk_chart, use_container_width=True)
 with col2:
     st.markdown("<h4 style='text-align: center;'>this is a map</h4>", unsafe_allow_html=True)
     st_data = st_folium(m, use_container_width=True)
