@@ -14,28 +14,6 @@ def filter_df(df, counter_selection):
     new_df = df[df['name'].isin(counter_selection)]
     return new_df
 
-
-# read files
-with open('data/retrieval_date.pkl', 'rb') as f:
-    retrieval_date = pickle.load(f)
-hr = pd.read_pickle('data/by_hour.pkl')
-geo = pd.read_pickle('data/counters.pkl')
-count_per_day = hr[['name', 'counts']].groupby('name').sum()
-
-counters = np.sort(list(geo['name'].unique()))
-
-### SIDEBAR
-with st.sidebar:
-    selected_counters = st.multiselect("select counters:", 
-                                options=counters
-                                )
-    if len(selected_counters)==0:
-        selected_counters = counters
-    
-### filter dfs
-select_geo = filter_df(geo, selected_counters)
-select_hr = filter_df(hr, selected_counters)
-
 # colors
 cat_20 = ['#1f77b4',
     '#aec7e8',
@@ -59,18 +37,57 @@ cat_20 = ['#1f77b4',
     '#9edae5'
     ]
 
-# map all counters to colors
-num_selected_counters = len(selected_counters)
-color_indices = np.linspace(0, len(cat_20)-1, num_selected_counters, dtype=int)
-colors = [cat_20[x] for x in color_indices]
-color_dict = dict(zip(selected_counters, colors))
+# read files
+with open('data/retrieval_date.pkl', 'rb') as f:
+    retrieval_date = pickle.load(f)
+hr = pd.read_pickle('data/by_hour.pkl')
+geo = pd.read_pickle('data/counters.pkl')
+count_per_day = hr[['name', 'counts']].groupby('name').sum()
+
+counters = np.sort(list(geo['name'].unique()))
+
+### SIDEBAR
+with st.sidebar:
+    selected_counters = st.multiselect("select counters:", 
+                                options=counters
+                                )
+    if len(selected_counters)==0:
+        selected_counters = counters
+
+    ## sidebar legend
+    # map all counters to colors
+    num_selected_counters = len(selected_counters)
+    color_indices = np.linspace(0, len(cat_20)-1, num_selected_counters, dtype=int)
+    colors = [cat_20[x] for x in color_indices]
+    color_dict = dict(zip(selected_counters, colors))
+
+    selected_counter_mapping = pd.DataFrame({
+        'name': selected_counters,
+        'count': [1 for x in selected_counters],
+        'color': colors
+    })
+
+    # Create an Altair chart using the color encoding
+    legend_chart = alt.Chart(selected_counter_mapping).mark_bar().encode(
+        y=alt.Y('name:O', axis=alt.Axis(title=None)),
+        x=alt.X('count:Q', axis=alt.Axis(title=None, labels=False)), 
+        color=alt.Color('color:N', scale=None)
+    )
+    legend_chart = legend_chart.configure_legend(disable=True).properties(width=200)
+    legend_chart = legend_chart.configure_axis(labelLimit=350)
+    st.write('')
+    st.altair_chart(legend_chart, use_container_width=False)
+    
+### filter dfs
+select_geo = filter_df(geo, selected_counters)
+select_hr = filter_df(hr, selected_counters)
 
 #create color column
 select_geo['color'] = select_geo['name'].map(color_dict)
 select_hr['color'] = select_hr['name'].map(color_dict)
 
 ### line chart
-chart = alt.Chart(select_hr).mark_line().encode(
+hr_chart = alt.Chart(select_hr).mark_line().encode(
     x='hr:O',
     y=alt.Y('counts:Q', title='counts'),
     color=alt.Color('color:N', scale=None) # Color by series_name
@@ -108,9 +125,10 @@ folium.TileLayer('cartodbdark_matter').add_to(m)
 
 # render
 col1, col2= st.columns(2)
+
 with col1:
+    st.markdown("<h4 style='text-align: center;'>this is a chart</h4>", unsafe_allow_html=True)
+    st.altair_chart(hr_chart, use_container_width=True)
+with col2:
     st.markdown("<h4 style='text-align: center;'>this is a map</h4>", unsafe_allow_html=True)
     st_data = st_folium(m, use_container_width=True)
-with col2:
-    st.markdown("<h4 style='text-align: center;'>this is a chart</h4>", unsafe_allow_html=True)
-    st.altair_chart(chart, use_container_width=True,)
