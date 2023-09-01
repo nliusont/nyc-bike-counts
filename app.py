@@ -3,12 +3,15 @@ import altair as alt
 import streamlit as st
 import folium
 from streamlit_folium import st_folium
-from streamlit_folium import folium_static
 import numpy as np
 import pickle
-import random
 
 st.set_page_config(page_title="NYC Biking Data", layout="wide")
+
+### filter dfs func
+def filter_df(df, counter_selection):
+    new_df = df[df['name'].isin(counter_selection)]
+    return new_df
 
 
 # read files
@@ -18,6 +21,19 @@ hr = pd.read_pickle('data/by_hour.pkl')
 geo = pd.read_pickle('data/counters.pkl')
 count_per_day = hr[['name', 'counts']].groupby('name').sum()
 
+counters = np.sort(list(geo['name'].unique()))
+
+### SIDEBAR
+with st.sidebar:
+    selected_counters = st.multiselect("select counters:", 
+                                options=counters
+                                )
+    if len(selected_counters)==0:
+        selected_counters = counters
+    
+### filter dfs
+select_geo = filter_df(geo, selected_counters)
+select_hr = filter_df(hr, selected_counters)
 
 # colors
 cat_20 = ['#1f77b4',
@@ -42,18 +58,18 @@ cat_20 = ['#1f77b4',
     '#9edae5'
     ]
 
-# map all counters to colors randomly
-counters = list(geo['name'].unique())
-num_counters = len(counters)
-color_indices = np.linspace(0, len(cat_20)-1, num_counters, dtype=int)
+# map all counters to colors
+num_selected_counters = len(selected_counters)
+color_indices = np.linspace(0, len(cat_20)-1, num_selected_counters, dtype=int)
 colors = [cat_20[x] for x in color_indices]
-color_dict = dict(zip(counters, colors))
+color_dict = dict(zip(selected_counters, colors))
+
 #create color column
-geo['color'] = geo['name'].map(color_dict)
-hr['color'] = hr['name'].map(color_dict)
+select_geo['color'] = select_geo['name'].map(color_dict)
+select_hr['color'] = select_hr['name'].map(color_dict)
 
 ### line chart
-chart = alt.Chart(hr).mark_line().encode(
+chart = alt.Chart(select_hr).mark_line().encode(
     x='hr:O',
     y=alt.Y('counts:Q', title='counts'),
     color=alt.Color('color:N', scale=None) # Color by series_name
@@ -62,7 +78,7 @@ chart = alt.Chart(hr).mark_line().encode(
 ### map
 m = folium.Map(location=[40.720, -74.0060], zoom_start=12)
 
-for i, c in geo.iterrows():
+for i, c in select_geo.iterrows():
     # establish params
     lat = c['latitude']
     long = c['longitude']
