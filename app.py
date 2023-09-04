@@ -33,8 +33,6 @@ count_per_wk = hr.reset_index()[['id', 'counts']].groupby('id').sum()
 
 all_counters = np.sort(list(counters['name'].unique()))
 
-st.write(date_list.dtype)
-
 ### SIDEBAR
 with st.sidebar:
     selected_counters = st.multiselect("select counters:", 
