@@ -57,11 +57,9 @@ select_counters = filter_df(counters, selected_counter_ids)
 select_hr = filter_df(hr, selected_counter_ids)
 select_wk = filter_df(wk, selected_counter_ids)
 
-st.write(select_hr)
-
-### HOURLY line chart ####WHY WON"T THIS SHOW RIGHT
+### HOURLY line chart
 hr_chart = alt.Chart(select_hr.reset_index()).mark_line().encode(
-    x=alt.X('display_time:T', timeUnit='hours'),
+    x=alt.X('utchoursminutes(display_time):T', axis=alt.Axis(title=None, format='%-I %p')),
     y=alt.Y('counts:Q', title='counts'),
     color=alt.Color('color:N', scale=None),
     tooltip='name'
@@ -117,11 +115,11 @@ for i, c in select_counters.iterrows():
 col1, col2= st.columns(2)
 
 with col1:
-    st.markdown("<h4 style='text-align: center;'>this is an hourly chart</h4>", unsafe_allow_html=True)
+    st.markdown("<h4 style='text-align: center;'>avg. ridership throughout the day</h4>", unsafe_allow_html=True)
     st.altair_chart(hr_chart, use_container_width=True)
 with col1:
-    st.markdown("<h4 style='text-align: center;'>this is a weekly chart</h4>", unsafe_allow_html=True)
+    st.markdown("<h4 style='text-align: center;'>avg. ridership throughout the year</h4>", unsafe_allow_html=True)
     st.altair_chart(wk_chart, use_container_width=True)
 with col2:
-    st.markdown("<h4 style='text-align: center;'>this is a map</h4>", unsafe_allow_html=True)
+    st.markdown("<h4 style='text-align: center;'>bike counter locations</h4>", unsafe_allow_html=True)
     st_data = st_folium(m, use_container_width=True)
