@@ -10,20 +10,30 @@ st.set_page_config(page_title="NYC Biking Data", layout="wide")
 st.title("Bike ridership in NYC")
 
 ### filter dfs func
-def filter_df(df, counter_selection):
+def filter_df_counters(df, counter_selection):
     new_df = df[df.index.get_level_values('id').isin(counter_selection)].copy()
+    return new_df
+
+def filter_df_dates(df, start_date, end_date):
+    date_idx = df.index.get_level_values('date')
+    criteria = (date_idx >= start_date) & (date_idx<=end_date)
+    new_df = df.loc[criteria].copy()
     return new_df
 
 # read files
 with open('data/retrieval_date.pkl', 'rb') as f:
     retrieval_date = pickle.load(f)
 
+date_list = pd.read_pickle('data/date_list.pkl')
 hr = pd.read_pickle('data/streamlit_by_hr.pkl')
 wk = pd.read_pickle('data/streamlit_by_wk.pkl')
+hist_wk = pd.read_pickle('data/streamlit_hist_by_wk.pkl')
 counters = pd.read_pickle('data/streamlit_counters.pkl')
 count_per_wk = hr.reset_index()[['id', 'counts']].groupby('id').sum()
 
 all_counters = np.sort(list(counters['name'].unique()))
+
+st.write(date_list.dtype)
 
 ### SIDEBAR
 with st.sidebar:
@@ -35,6 +45,17 @@ with st.sidebar:
         selected_counters = all_counters
     else:
         selected_counter_ids = counters.loc[counters['name'].isin(selected_counters), :].index
+
+    selected_dates = st.select_slider('select historical chart dates:',
+                                    value=[date_list[0], date_list[-1]],
+                                    options=date_list,
+                                    label_visibility='collapsed',
+                                    format_func=lambda date_list: date_list.strftime('%b-%Y')
+                                    ) 
+    if len(selected_dates)==0:
+        selected_dates = (date_list[0], date_list[-1])
+    start_date = selected_dates[0]
+    end_date = selected_dates[1]
 
     ## sidebar legend
     num_selected_counters = len(selected_counters)
@@ -53,11 +74,13 @@ with st.sidebar:
     st.altair_chart(legend_chart, use_container_width=False)
 
 ### filter dfs
-select_counters = filter_df(counters, selected_counter_ids)
-select_hr = filter_df(hr, selected_counter_ids)
-select_wk = filter_df(wk, selected_counter_ids)
+select_counters = filter_df_counters(counters, selected_counter_ids)
+select_hr = filter_df_counters(hr, selected_counter_ids)
+select_wk = filter_df_counters(wk, selected_counter_ids)
+select_hist_wk = filter_df_counters(hist_wk, selected_counter_ids)
+select_hist_wk = filter_df_dates(select_hist_wk, start_date, end_date)
 
-### HOURLY line chart
+### HOURLY LINE CHART
 hr_chart = alt.Chart(select_hr.reset_index()).mark_line().encode(
     x=alt.X('utchoursminutes(display_time):T', axis=alt.Axis(title=None, format='%-I %p')),
     y=alt.Y('counts:Q', title='counts'),
@@ -69,7 +92,7 @@ hr_chart = hr_chart.configure_axis(
     labelAngle=-45
 )
 
-### WEEKLY line chart
+### WEEKLY LINE CHART
 wk_chart = alt.Chart(select_wk.reset_index()).mark_line().encode(
     x=alt.X('display_date:T', axis=alt.Axis(tickCount={"interval": "month", "step": 1}, tickExtra=True, grid=True), title=None),
     y=alt.Y('counts:Q', title='counts'),
@@ -81,7 +104,19 @@ wk_chart = wk_chart.configure_axis(
     labelAngle=-45
 )
 
-### map
+
+
+### HISTORICAL WEEKLY CHART
+hist_wk_chart = alt.Chart(select_hist_wk.reset_index()).mark_line().encode(
+    x=alt.X('date:T', axis=alt.Axis(tickCount={'interval':'month', 'step':3}, title=None, format='%b-%Y')),
+    y=alt.Y('counts:Q', title='counts'),
+    color=alt.Color('color:N', scale=None),
+    tooltip='name:O'
+)
+
+
+
+### MAP
 m = folium.Map(location=[40.720, -74.0060], zoom_start=12)
 folium.TileLayer('cartodbdark_matter').add_to(m)
 
@@ -123,3 +158,5 @@ with col1:
 with col2:
     st.markdown("<h4 style='text-align: center;'>bike counter locations</h4>", unsafe_allow_html=True)
     st_data = st_folium(m, use_container_width=True)
+
+st.altair_chart(hist_wk_chart, use_container_width=True)
