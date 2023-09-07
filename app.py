@@ -9,7 +9,11 @@ from streamlit_js_eval import streamlit_js_eval
 
 st.set_page_config(page_title="NYC Biking Data", layout="wide")
 st.title("Bike ridership in NYC")
-st.write(streamlit_js_eval(js_expressions='window.innerWidth', key='SCR'))
+
+# set chart widths
+browser_width = streamlit_js_eval(js_expressions='window.innerWidth', key='SCR')
+legend_width = browser_width * 0.05
+chart_width = browser_width * 0.65
 
 ### filter dfs func
 def filter_df_counters(df, counter_selection):
@@ -49,22 +53,6 @@ with st.sidebar:
     else:
         selected_counter_ids = counters.loc[counters['name'].isin(selected_counters), :].index
 
-    ## sidebar legend
-    num_selected_counters = len(selected_counters)
-    selected_counter_mapping = counters.loc[selected_counter_ids]
-    selected_counter_mapping['count'] = 1
-
-    # Create an Altair chart using the color encoding
-    legend_chart = alt.Chart(selected_counter_mapping).mark_bar().encode(
-        y=alt.Y('name:O', axis=alt.Axis(title=None), ),
-        x=alt.X('count:Q', axis=alt.Axis(title=None, labels=False)), 
-        color=alt.Color('color:N', scale=None)
-    )
-    legend_chart = legend_chart.configure_legend(disable=True).properties(width=200)
-    legend_chart = legend_chart.configure_axis(labelLimit=350)
-    st.write('')
-    st.altair_chart(legend_chart, use_container_width=False)
-
     ### DATE SLIDER
     st.write('')
     select_hist_wk = filter_df_counters(hist_wk, selected_counter_ids)
@@ -86,12 +74,29 @@ select_hr = filter_df_counters(hr, selected_counter_ids)
 select_wk = filter_df_counters(wk, selected_counter_ids)
 select_hist_wk = filter_df_dates(select_hist_wk, start_date, end_date)
 
+## LEGEND
+num_selected_counters = len(selected_counters)
+selected_counter_mapping = counters.loc[selected_counter_ids]
+selected_counter_mapping['count'] = 1
+
+hover_selection = alt.selection_point(on='mouseover', fields=['name'], nearest=True)
+
+legend_chart = alt.Chart(selected_counter_mapping).mark_bar().encode(
+    y=alt.Y('name:O', axis=alt.Axis(title=None, labelLimit=300), scale=alt.Scale(padding=0.1)),
+    x=alt.X('count:Q', axis=alt.Axis(title=None, labels=False)), 
+    color=alt.Color('color:N', scale=None, legend=None),
+    tooltip=alt.value(None),
+    opacity=alt.condition(hover_selection, alt.value(1), alt.value(0.4))
+    ).properties(width=legend_width).add_params(hover_selection)
+
+
 ### HOURLY LINE CHART
 hr_chart = alt.Chart(select_hr.reset_index()).mark_line().encode(
     x=alt.X('utchoursminutes(display_time):T', axis=alt.Axis(title=None, format='%-I %p', grid=True)),
     y=alt.Y('counts:Q', title='riders per hour'),
-    color=alt.Color('color:N', scale=None)
-)
+    color=alt.Color('color:N', scale=None),
+    opacity=alt.condition(hover_selection, alt.value(1), alt.value(0.4))
+    ).properties(title='average hourly ridership', width=chart_width).add_params(hover_selection)
 
 # Create a selection that chooses the nearest point & selects based on x-value
 nearest_hr = alt.selection_point(nearest=True, on='mouseover',
@@ -134,8 +139,9 @@ wk_chart = alt.Chart(select_wk.reset_index()).mark_line().encode(
     x=alt.X('display_date:T', axis=alt.Axis(tickCount={"interval": "month", "step": 1}, tickExtra=True, grid=True), title=None),
     y=alt.Y('counts:Q', title='riders per week'),
     color=alt.Color('color:N', scale=None),
-    tooltip=['name:O', 'counts:Q', 'display_date:T']
-)
+    tooltip=['name:O', 'counts:Q', 'display_date:T'],
+    opacity=alt.condition(hover_selection, alt.value(1), alt.value(0.4))
+    ).properties(title='average weekly ridership', width=chart_width).add_params(hover_selection)
 
 # Create a selection that chooses the nearest point & selects based on x-value
 nearest_wk = alt.selection_point(nearest=True, on='mouseover',
@@ -175,11 +181,12 @@ wk_chart_bound = alt.layer(
 
 ### HISTORICAL WEEKLY CHART
 hist_wk_chart = alt.Chart(select_hist_wk.reset_index()).mark_line().encode(
-    x=alt.X('date:T', axis=alt.Axis(tickCount={'interval':'month', 'step':3}, title=None, format='%b-%Y')),
+    x=alt.X('date:T', axis=alt.Axis(tickCount={'interval':'month', 'step':3}, title=None, format='%b-%Y', grid=True)),
     y=alt.Y('counts:Q', title='riders per week'),
     color=alt.Color('color:N', scale=None),
-    tooltip='name:O'
-)
+    tooltip='name:O',
+    opacity=alt.condition(hover_selection, alt.value(1), alt.value(0.4))
+    ).properties(title='historical weekly ridership', width=chart_width).add_params(hover_selection)
 
 
 
@@ -214,17 +221,7 @@ for i, c in select_counters.iterrows():
 
 
 # render
-col1, col2= st.columns(2)
 
-with col1:
-    st.markdown("<h4 style='text-align: center;'>avg. ridership per hour of the day</h4>", unsafe_allow_html=True)
-    st.altair_chart(hr_chart_bound, use_container_width=True)
-with col1:
-    st.markdown("<h4 style='text-align: center;'>avg. ridership per week of the year</h4>", unsafe_allow_html=True)
-    st.altair_chart(wk_chart_bound, use_container_width=True)
-with col2:
-    st.markdown("<h4 style='text-align: center;'>bike counter locations</h4>", unsafe_allow_html=True)
-    st_data = st_folium(m, use_container_width=True)
-
-st.markdown("<h4 style='text-align: center;'>historical data</h4>", unsafe_allow_html=True)
-st.altair_chart(hist_wk_chart, use_container_width=True)
+combo_chart = hr_chart_bound & wk_chart_bound & hist_wk_chart
+combo_chart_legend = legend_chart | combo_chart
+st.altair_chart(combo_chart_legend.configure_axis(labelFontSize=16).configure_title(fontSize=24), use_container_width=True)
