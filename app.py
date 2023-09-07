@@ -35,28 +35,19 @@ all_counters = np.sort(list(counters['name'].unique()))
 ### SIDEBAR
 with st.sidebar:
     selected_counters = st.multiselect("select counters:", 
-                                options=all_counters
+                                options=all_counters,
+                                default=['Brooklyn Br',
+                                         'Manhattan Br',
+                                         'Pulaski Br',
+                                         'Queensboro Br',
+                                         'Williamsburg Br']
+
                                 )
     if len(selected_counters)==0:
         selected_counter_ids = counters.index.to_list()
         selected_counters = all_counters
     else:
         selected_counter_ids = counters.loc[counters['name'].isin(selected_counters), :].index
-
-
-    select_hist_wk = filter_df_counters(hist_wk, selected_counter_ids)
-    date_list = pd.to_datetime(select_hist_wk.index.get_level_values('date').to_series().dt.strftime('%Y-%m').unique()).to_series()
-
-    selected_dates = st.select_slider('select historical chart dates:',
-                                    value=[date_list[0], date_list[-1]],
-                                    options=date_list,
-                                    label_visibility='collapsed',
-                                    format_func=lambda date_list: date_list.strftime('%b-%Y')
-                                    ) 
-    if len(selected_dates)==0:
-        selected_dates = (date_list[0], date_list[-1])
-    start_date = selected_dates[0]
-    end_date = selected_dates[1]
 
     ## sidebar legend
     num_selected_counters = len(selected_counters)
@@ -73,6 +64,21 @@ with st.sidebar:
     legend_chart = legend_chart.configure_axis(labelLimit=350)
     st.write('')
     st.altair_chart(legend_chart, use_container_width=False)
+
+    ### DATE SLIDER
+    st.write('')
+    select_hist_wk = filter_df_counters(hist_wk, selected_counter_ids)
+    date_list = pd.to_datetime(select_hist_wk.index.get_level_values('date').to_series().dt.strftime('%Y-%m').unique()).to_series()
+
+    selected_dates = st.select_slider("select historical chart dates:",
+                                    value=[date_list[0], date_list[-1]],
+                                    options=date_list,
+                                    format_func=lambda date_list: date_list.strftime('%b-%Y')
+                                    ) 
+    if len(selected_dates)==0:
+        selected_dates = (date_list[0], date_list[-1])
+    start_date = selected_dates[0]
+    end_date = selected_dates[1]
 
 ### filter dfs
 select_counters = filter_df_counters(counters, selected_counter_ids)
@@ -167,10 +173,6 @@ wk_chart_bound = alt.layer(
     wk_chart, selectors, points, rules, text
 )
 
-wk_chart_bound = wk_chart_bound.configure_axis(
-    labelAngle=-45
-)
-
 ### HISTORICAL WEEKLY CHART
 hist_wk_chart = alt.Chart(select_hist_wk.reset_index()).mark_line().encode(
     x=alt.X('date:T', axis=alt.Axis(tickCount={'interval':'month', 'step':3}, title=None, format='%b-%Y')),
@@ -224,4 +226,5 @@ with col2:
     st.markdown("<h4 style='text-align: center;'>bike counter locations</h4>", unsafe_allow_html=True)
     st_data = st_folium(m, use_container_width=True)
 
+st.markdown("<h4 style='text-align: center;'>historical data</h4>", unsafe_allow_html=True)
 st.altair_chart(hist_wk_chart, use_container_width=True)
