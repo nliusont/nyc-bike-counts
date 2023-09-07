@@ -38,8 +38,6 @@ with st.sidebar:
                                 options=all_counters,
                                 default=['Brooklyn Br',
                                          'Manhattan Br',
-                                         'Pulaski Br',
-                                         'Queensboro Br',
                                          'Williamsburg Br']
 
                                 )
@@ -71,7 +69,7 @@ with st.sidebar:
     date_list = pd.to_datetime(select_hist_wk.index.get_level_values('date').to_series().dt.strftime('%Y-%m').unique()).to_series()
 
     selected_dates = st.select_slider("select historical chart dates:",
-                                    value=[date_list[0], date_list[-1]],
+                                    value=[date_list[50], date_list[86]],
                                     options=date_list,
                                     format_func=lambda date_list: date_list.strftime('%b-%Y')
                                     ) 
