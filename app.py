@@ -82,8 +82,8 @@ select_hist_wk = filter_df_dates(select_hist_wk, start_date, end_date)
 
 ### HOURLY LINE CHART
 hr_chart = alt.Chart(select_hr.reset_index()).mark_line().encode(
-    x=alt.X('utchoursminutes(display_time):T', axis=alt.Axis(title=None, format='%-I %p')),
-    y=alt.Y('counts:Q', title='counts'),
+    x=alt.X('utchoursminutes(display_time):T', axis=alt.Axis(title=None, format='%-I %p', grid=True)),
+    y=alt.Y('counts:Q', title='riders per hour'),
     color=alt.Color('color:N', scale=None),
     tooltip='name'
 )
@@ -95,7 +95,7 @@ hr_chart = hr_chart.configure_axis(
 ### WEEKLY LINE CHART
 wk_chart = alt.Chart(select_wk.reset_index()).mark_line().encode(
     x=alt.X('display_date:T', axis=alt.Axis(tickCount={"interval": "month", "step": 1}, tickExtra=True, grid=True), title=None),
-    y=alt.Y('counts:Q', title='counts'),
+    y=alt.Y('counts:Q', title='riders per week'),
     color=alt.Color('color:N', scale=None),
     tooltip=['name:O', 'counts:Q', 'display_date:T']
 )
@@ -107,7 +107,7 @@ wk_chart = wk_chart.configure_axis(
 ### HISTORICAL WEEKLY CHART
 hist_wk_chart = alt.Chart(select_hist_wk.reset_index()).mark_line().encode(
     x=alt.X('date:T', axis=alt.Axis(tickCount={'interval':'month', 'step':3}, title=None, format='%b-%Y')),
-    y=alt.Y('counts:Q', title='counts'),
+    y=alt.Y('counts:Q', title='riders per week'),
     color=alt.Color('color:N', scale=None),
     tooltip='name:O'
 )
@@ -148,10 +148,10 @@ for i, c in select_counters.iterrows():
 col1, col2= st.columns(2)
 
 with col1:
-    st.markdown("<h4 style='text-align: center;'>avg. ridership throughout the day</h4>", unsafe_allow_html=True)
+    st.markdown("<h4 style='text-align: center;'>avg. ridership per hour of the day</h4>", unsafe_allow_html=True)
     st.altair_chart(hr_chart, use_container_width=True)
 with col1:
-    st.markdown("<h4 style='text-align: center;'>avg. ridership throughout the year</h4>", unsafe_allow_html=True)
+    st.markdown("<h4 style='text-align: center;'>avg. ridership per week of the year</h4>", unsafe_allow_html=True)
     st.altair_chart(wk_chart, use_container_width=True)
 with col2:
     st.markdown("<h4 style='text-align: center;'>bike counter locations</h4>", unsafe_allow_html=True)
