@@ -5,9 +5,11 @@ import folium
 from streamlit_folium import st_folium
 import numpy as np
 import pickle
+from streamlit_js_eval import streamlit_js_eval
 
 st.set_page_config(page_title="NYC Biking Data", layout="wide")
 st.title("Bike ridership in NYC")
+st.write(streamlit_js_eval(js_expressions='window.innerWidth', key='SCR'))
 
 ### filter dfs func
 def filter_df_counters(df, counter_selection):
