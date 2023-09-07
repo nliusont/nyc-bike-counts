@@ -88,7 +88,7 @@ hr_chart = alt.Chart(select_hr.reset_index()).mark_line().encode(
 )
 
 # Create a selection that chooses the nearest point & selects based on x-value
-nearest = alt.selection_point(nearest=True, on='mouseover',
+nearest_hr = alt.selection_point(nearest=True, on='mouseover',
                         fields=['display_time'], empty=False)
 
 # Transparent selectors across the chart. This is what tells us
@@ -98,24 +98,24 @@ selectors = alt.Chart(select_hr.reset_index()).mark_point().encode(
     opacity=alt.value(0),
     tooltip=alt.value(None)
 ).add_params(
-    nearest
+    nearest_hr
 )
 
 # Draw points on the line, and highlight based on selection
 points = hr_chart.mark_point().encode(
-    opacity=alt.condition(nearest, alt.value(1), alt.value(0))
+    opacity=alt.condition(nearest_hr, alt.value(1), alt.value(0))
 )
 
 # Draw text labels near the points, and highlight based on selection
 text = hr_chart.mark_text(align='left', dx=10, dy=10).encode(
-    text=alt.condition(nearest, alt.Text('counts:Q', format='.0f'), alt.value(' '))
+    text=alt.condition(nearest_hr, alt.Text('counts:Q', format='.0f'), alt.value(' '))
 )
 
 # Draw a rule at the location of the selection
 rules = alt.Chart(select_hr.reset_index()).mark_rule(color='gray').encode(
     x='utchoursminutes(display_time):T'
 ).transform_filter(
-    nearest
+    nearest_hr
 )
 
 # Put the five layers into a chart and bind the data
@@ -131,7 +131,43 @@ wk_chart = alt.Chart(select_wk.reset_index()).mark_line().encode(
     tooltip=['name:O', 'counts:Q', 'display_date:T']
 )
 
-wk_chart = wk_chart.configure_axis(
+# Create a selection that chooses the nearest point & selects based on x-value
+nearest_wk = alt.selection_point(nearest=True, on='mouseover',
+                        fields=['display_date'], empty=False)
+
+# Transparent selectors across the chart. This is what tells us
+# the x-value of the cursor
+selectors = alt.Chart(select_wk.reset_index()).mark_point().encode(
+    x='display_date:T',
+    opacity=alt.value(0),
+    tooltip=alt.value(None)
+).add_params(
+    nearest_wk
+)
+
+# Draw points on the line, and highlight based on selection
+points = wk_chart.mark_point().encode(
+    opacity=alt.condition(nearest_wk, alt.value(1), alt.value(0))
+)
+
+# Draw text labels near the points, and highlight based on selection
+text = wk_chart.mark_text(align='left', dx=10, dy=10).encode(
+    text=alt.condition(nearest_wk, alt.Text('counts:Q', format=',.0f'), alt.value(' '))
+)
+
+# Draw a rule at the location of the selection
+rules = alt.Chart(select_wk.reset_index()).mark_rule(color='gray').encode(
+    x='display_date:T'
+).transform_filter(
+    nearest_wk
+)
+
+# Put the five layers into a chart and bind the data
+wk_chart_bound = alt.layer(
+    wk_chart, selectors, points, rules, text
+)
+
+wk_chart_bound = wk_chart_bound.configure_axis(
     labelAngle=-45
 )
 
@@ -183,7 +219,7 @@ with col1:
     st.altair_chart(hr_chart_bound, use_container_width=True)
 with col1:
     st.markdown("<h4 style='text-align: center;'>avg. ridership per week of the year</h4>", unsafe_allow_html=True)
-    st.altair_chart(wk_chart, use_container_width=True)
+    st.altair_chart(wk_chart_bound, use_container_width=True)
 with col2:
     st.markdown("<h4 style='text-align: center;'>bike counter locations</h4>", unsafe_allow_html=True)
     st_data = st_folium(m, use_container_width=True)
