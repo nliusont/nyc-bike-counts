@@ -84,12 +84,43 @@ select_hist_wk = filter_df_dates(select_hist_wk, start_date, end_date)
 hr_chart = alt.Chart(select_hr.reset_index()).mark_line().encode(
     x=alt.X('utchoursminutes(display_time):T', axis=alt.Axis(title=None, format='%-I %p', grid=True)),
     y=alt.Y('counts:Q', title='riders per hour'),
-    color=alt.Color('color:N', scale=None),
-    tooltip='name'
+    color=alt.Color('color:N', scale=None)
 )
 
-hr_chart = hr_chart.configure_axis(
-    labelAngle=-45
+# Create a selection that chooses the nearest point & selects based on x-value
+nearest = alt.selection_point(nearest=True, on='mouseover',
+                        fields=['display_time'], empty=False)
+
+# Transparent selectors across the chart. This is what tells us
+# the x-value of the cursor
+selectors = alt.Chart(select_hr.reset_index()).mark_point().encode(
+    x='utchoursminutes(display_time):T',
+    opacity=alt.value(0),
+    tooltip=alt.value(None)
+).add_params(
+    nearest
+)
+
+# Draw points on the line, and highlight based on selection
+points = hr_chart.mark_point().encode(
+    opacity=alt.condition(nearest, alt.value(1), alt.value(0))
+)
+
+# Draw text labels near the points, and highlight based on selection
+text = hr_chart.mark_text(align='left', dx=10, dy=10).encode(
+    text=alt.condition(nearest, alt.Text('counts:Q', format='.0f'), alt.value(' '))
+)
+
+# Draw a rule at the location of the selection
+rules = alt.Chart(select_hr.reset_index()).mark_rule(color='gray').encode(
+    x='utchoursminutes(display_time):T'
+).transform_filter(
+    nearest
+)
+
+# Put the five layers into a chart and bind the data
+hr_chart_bound = alt.layer(
+    hr_chart, selectors, points, rules, text
 )
 
 ### WEEKLY LINE CHART
@@ -149,7 +180,7 @@ col1, col2= st.columns(2)
 
 with col1:
     st.markdown("<h4 style='text-align: center;'>avg. ridership per hour of the day</h4>", unsafe_allow_html=True)
-    st.altair_chart(hr_chart, use_container_width=True)
+    st.altair_chart(hr_chart_bound, use_container_width=True)
 with col1:
     st.markdown("<h4 style='text-align: center;'>avg. ridership per week of the year</h4>", unsafe_allow_html=True)
     st.altair_chart(wk_chart, use_container_width=True)
