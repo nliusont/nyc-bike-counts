@@ -24,7 +24,6 @@ def filter_df_dates(df, start_date, end_date):
 with open('data/retrieval_date.pkl', 'rb') as f:
     retrieval_date = pickle.load(f)
 
-date_list = pd.read_pickle('data/date_list.pkl')
 hr = pd.read_pickle('data/streamlit_by_hr.pkl')
 wk = pd.read_pickle('data/streamlit_by_wk.pkl')
 hist_wk = pd.read_pickle('data/streamlit_hist_by_wk.pkl')
@@ -43,6 +42,10 @@ with st.sidebar:
         selected_counters = all_counters
     else:
         selected_counter_ids = counters.loc[counters['name'].isin(selected_counters), :].index
+
+
+    select_hist_wk = filter_df_counters(hist_wk, selected_counter_ids)
+    date_list = pd.to_datetime(select_hist_wk.index.get_level_values('date').to_series().dt.strftime('%Y-%m').unique()).to_series()
 
     selected_dates = st.select_slider('select historical chart dates:',
                                     value=[date_list[0], date_list[-1]],
@@ -75,7 +78,6 @@ with st.sidebar:
 select_counters = filter_df_counters(counters, selected_counter_ids)
 select_hr = filter_df_counters(hr, selected_counter_ids)
 select_wk = filter_df_counters(wk, selected_counter_ids)
-select_hist_wk = filter_df_counters(hist_wk, selected_counter_ids)
 select_hist_wk = filter_df_dates(select_hist_wk, start_date, end_date)
 
 ### HOURLY LINE CHART
@@ -95,14 +97,12 @@ wk_chart = alt.Chart(select_wk.reset_index()).mark_line().encode(
     x=alt.X('display_date:T', axis=alt.Axis(tickCount={"interval": "month", "step": 1}, tickExtra=True, grid=True), title=None),
     y=alt.Y('counts:Q', title='counts'),
     color=alt.Color('color:N', scale=None),
-    tooltip='name'
+    tooltip=['name:O', 'counts:Q', 'display_date:T']
 )
 
 wk_chart = wk_chart.configure_axis(
     labelAngle=-45
 )
-
-
 
 ### HISTORICAL WEEKLY CHART
 hist_wk_chart = alt.Chart(select_hist_wk.reset_index()).mark_line().encode(
@@ -136,7 +136,7 @@ for i, c in select_counters.iterrows():
     circle = folium.CircleMarker(
         location=(lat,long),
         tooltip=folium.Tooltip(tooltip_content),
-        radius=count[0] * 0.025,
+        radius=count[0] * 0.008,
         color=color,
         fill=True,
         fill_color=color,
