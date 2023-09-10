@@ -10,11 +10,6 @@ from streamlit_js_eval import streamlit_js_eval
 st.set_page_config(page_title="NYC Biking Data", layout="wide")
 st.title("Bike ridership in NYC")
 
-# set chart widths
-browser_width = streamlit_js_eval(js_expressions='window.innerWidth', key='SCR')
-legend_width = browser_width * 0.05
-chart_width = browser_width * 0.65
-
 ### filter dfs func
 def filter_df_counters(df, counter_selection):
     new_df = df[df.index.get_level_values('id').isin(counter_selection)].copy()
@@ -38,6 +33,11 @@ count_per_wk = hr.reset_index()[['id', 'counts']].groupby('id').sum()
 
 all_counters = np.sort(list(counters['name'].unique()))
 
+# set chart widths
+browser_width = streamlit_js_eval(js_expressions='window.innerWidth', key='SCR')
+legend_width = browser_width * 0.05
+chart_width = browser_width * 0.65
+
 ### SIDEBAR
 with st.sidebar:
     selected_counters = st.multiselect("select counters:", 
@@ -59,7 +59,7 @@ with st.sidebar:
     date_list = pd.to_datetime(select_hist_wk.index.get_level_values('date').to_series().dt.strftime('%Y-%m').unique()).to_series()
 
     selected_dates = st.select_slider("select historical chart dates:",
-                                    value=[date_list[50], date_list[86]],
+                                    value=[date_list[0], date_list[-1]],
                                     options=date_list,
                                     format_func=lambda date_list: date_list.strftime('%b-%Y')
                                     ) 
@@ -68,8 +68,39 @@ with st.sidebar:
     start_date = selected_dates[0]
     end_date = selected_dates[1]
 
+    ### MAP
+    select_counters = filter_df_counters(counters, selected_counter_ids)
+    m = folium.Map(location=[40.720, -73.94], zoom_start=11)
+    folium.TileLayer('cartodbdark_matter').add_to(m)
+
+    for i, c in select_counters.iterrows():
+        # establish params
+        lat = c['latitude']
+        long = c['longitude']
+        name = c['name']
+        id = i
+        count = count_per_wk.loc[id]
+        color = c['color']
+
+        # create tooltip
+        tooltip_content = f"""
+        <p style="font-family: monospace;"><strong>{name}<br>
+        {int(np.round(count[0],0))}</strong> daily riders</p>
+    """
+        # create markers
+        circle = folium.CircleMarker(
+            location=(lat,long),
+            tooltip=folium.Tooltip(tooltip_content),
+            radius=count[0] * 0.005,
+            color=color,
+            fill=True,
+            fill_color=color,
+            highlight=True
+        ).add_to(m)
+
+    st_folium(m, width=400, height=400)
+
 ### filter dfs
-select_counters = filter_df_counters(counters, selected_counter_ids)
 select_hr = filter_df_counters(hr, selected_counter_ids)
 select_wk = filter_df_counters(wk, selected_counter_ids)
 select_hist_wk = filter_df_dates(select_hist_wk, start_date, end_date)
@@ -188,40 +219,15 @@ hist_wk_chart = alt.Chart(select_hist_wk.reset_index()).mark_line().encode(
     opacity=alt.condition(hover_selection, alt.value(1), alt.value(0.4))
     ).properties(title='historical weekly ridership', width=chart_width).add_params(hover_selection)
 
-
-
-### MAP
-m = folium.Map(location=[40.720, -74.0060], zoom_start=12)
-folium.TileLayer('cartodbdark_matter').add_to(m)
-
-for i, c in select_counters.iterrows():
-    # establish params
-    lat = c['latitude']
-    long = c['longitude']
-    name = c['name']
-    id = i
-    count = count_per_wk.loc[id]
-    color = c['color']
-
-    # create tooltip
-    tooltip_content = f"""
-    <p style="font-family: monospace;"><strong>{name}<br>
-     {int(np.round(count[0],0))}</strong> daily riders</p>
-"""
-    # create markers
-    circle = folium.CircleMarker(
-        location=(lat,long),
-        tooltip=folium.Tooltip(tooltip_content),
-        radius=count[0] * 0.008,
-        color=color,
-        fill=True,
-        fill_color=color,
-        highlight=True
-    ).add_to(m)
-
+## temp scatter plot
+wthr = pd.read_pickle('data/wthr.pkl')
+wthr_chart = alt.Chart(wthr).mark_circle(size=100).encode(
+    x=alt.X('temp:Q'),
+    y=alt.Y('counts:Q')
+)
 
 # render
-
+st.altair_chart(wthr_chart, use_container_width=True)
 combo_chart = hr_chart_bound & wk_chart_bound & hist_wk_chart
 combo_chart_legend = legend_chart | combo_chart
 st.altair_chart(combo_chart_legend.configure_axis(labelFontSize=16).configure_title(fontSize=24), use_container_width=True)
