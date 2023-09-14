@@ -1,4 +1,0 @@
-folium
-streamlit_folium
-streamlit_js_eval==0.1.5
-streamlit==1.26.0
