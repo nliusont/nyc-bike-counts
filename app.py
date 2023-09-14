@@ -219,15 +219,8 @@ hist_wk_chart = alt.Chart(select_hist_wk.reset_index()).mark_line().encode(
     opacity=alt.condition(hover_selection, alt.value(1), alt.value(0.4))
     ).properties(title='historical weekly ridership', width=chart_width).add_params(hover_selection)
 
-## temp scatter plot
-wthr = pd.read_pickle('data/wthr.pkl')
-wthr_chart = alt.Chart(wthr).mark_circle(size=100).encode(
-    x=alt.X('temp:Q'),
-    y=alt.Y('counts:Q')
-)
 
 # render
-st.altair_chart(wthr_chart, use_container_width=True)
 combo_chart = hr_chart_bound & wk_chart_bound & hist_wk_chart
 combo_chart_legend = legend_chart | combo_chart
 st.altair_chart(combo_chart_legend.configure_axis(labelFontSize=16).configure_title(fontSize=24), use_container_width=True)
