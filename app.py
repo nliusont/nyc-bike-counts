@@ -5,7 +5,17 @@ import folium
 from streamlit_folium import st_folium
 import numpy as np
 import pickle
-from streamlit_js_eval import streamlit_js_eval
+import os
+import json
+import streamlit.components.v1 as components
+
+absolute_path = os.path.dirname(os.path.abspath(__file__))
+frontend_path = absolute_path
+
+streamlit_js_eval = components.declare_component(
+    "streamlit_js_eval",
+    path=frontend_path
+)
 
 st.set_page_config(page_title="NYC Biking Data", layout="wide")
 st.title("Bike ridership in NYC")
@@ -35,6 +45,7 @@ all_counters = np.sort(list(counters['name'].unique()))
 
 # set chart widths
 browser_width = streamlit_js_eval(js_expressions='window.innerWidth', key='SCR')
+st.write(browser_width)
 legend_width = browser_width * 0.05
 chart_width = browser_width * 0.65
 
