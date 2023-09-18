@@ -2,7 +2,9 @@
 
 This repo cleans NYC bike count data and weather data and trains an xgboost model to predict daily bike ridership. This repo supports two Streamlit data apps:
 * [NYC Bike Counts](https://nyc-bike-counts.streamlit.app/)
+  * [Repo](https://github.com/nliusont/nyc-bike-counts-app)
 * [NYC Bike Prediction](https://nyc-bike-prediction.streamlit.app/)
+  * [Repo](https://github.com/nliusont/nyc-bike-prediction)
 
 ## Notebooks
 ### et.ipynb
